@@ -11,35 +11,21 @@ func SingleHash(in, out chan interface{}) {
 }
 
 func ExecutePipeline(hashSignJobs ...job) {
-
-	defer fmt.Printf("STOP of ExecutePipeline\n")
-
-	var in, out chan interface{}
+	in := make(chan interface{})
+	out := make(chan interface{})
 
 	wg := &sync.WaitGroup{}
 
-	in = make(chan interface{})
-
-	out = make(chan interface{})
-	wg.Add(1)
-	go func(in, out chan interface{}) {
-		defer wg.Done()
-		hashSignJobs[0](in, out)
-	}(in, out)
-	in = out
-	out = make(chan interface{})
-	go func(in, out chan interface{}) {
-		defer wg.Done()
-		hashSignJobs[1](in, out)
-	}(in, out)
-	in = out
-	out = make(chan interface{})
-	go func(in, out chan interface{}) {
-		defer wg.Done()
-		hashSignJobs[2](in, out)
-	}(in, out)
-
-	fmt.Printf("TEST EXECUTING\n")
+	for i, j := range hashSignJobs {
+		wg.Add(1)
+		go func(in, out chan interface{}, j job, i int) {
+			defer wg.Done()
+			j(in, out)
+			close(out)
+		}(in, out, j, i)
+		in = out
+		out = make(chan interface{})
+	}
 
 	wg.Wait()
 }
