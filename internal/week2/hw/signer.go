@@ -9,14 +9,20 @@ import (
 )
 
 func SingleHash(in, out chan interface{}) {
+	wg := &sync.WaitGroup{}
 	for rawData := range in {
 		data, ok := rawData.(int)
 		if !ok {
 			panic(fmt.Sprintf("type of the input value (%#v) is not int", rawData))
 		}
-		// crc32(data)+"~"+crc32(md5(data))
-		out <- DataSignerCrc32(strconv.Itoa(data)) + "~" + DataSignerCrc32(DataSignerMd5(strconv.Itoa(data)))
+		wg.Add(1)
+		go func(out chan interface{}) {
+			defer wg.Done()
+			// crc32(data)+"~"+crc32(md5(data))
+			out <- DataSignerCrc32(strconv.Itoa(data)) + "~" + DataSignerCrc32(DataSignerMd5(strconv.Itoa(data)))
+		}(out)
 	}
+	wg.Wait()
 }
 
 func MultiHash(in, out chan interface{}) {
@@ -25,11 +31,17 @@ func MultiHash(in, out chan interface{}) {
 		if !ok {
 			panic(fmt.Sprintf("type of the input value (%#v) is not string", rawData))
 		}
-		results := ""
+		wg := &sync.WaitGroup{}
+		results := make([]string, 6)
 		for i := 0; i < 6; i++ {
-			results += DataSignerCrc32(strconv.Itoa(i) + data)
+			wg.Add(1)
+			go func(i int, data string) {
+				defer wg.Done()
+				results[i] = DataSignerCrc32(strconv.Itoa(i) + data)
+			}(i, data)
 		}
-		out <- results
+		wg.Wait()
+		out <- strings.Join(results, "")
 	}
 }
 
@@ -38,7 +50,7 @@ func CombineResults(in, out chan interface{}) {
 	for v := range in {
 		s, ok := v.(string)
 		if !ok {
-			panic(fmt.Sprintf("type of the input value (%#v) is not int", v))
+			panic(fmt.Sprintf("type of the input value (%#v) is not string", v))
 		}
 		results = append(results, s)
 	}
