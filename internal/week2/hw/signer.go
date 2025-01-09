@@ -9,6 +9,9 @@ import (
 )
 
 func SingleHash(in, out chan interface{}) {
+	// канал квоты для функции DataSignerMd5, чтобы избежать перегрева
+	quotaCh := make(chan struct{}, 1)
+
 	wg := &sync.WaitGroup{}
 	for rawData := range in {
 		data, ok := rawData.(int)
@@ -19,7 +22,10 @@ func SingleHash(in, out chan interface{}) {
 		go func(out chan interface{}) {
 			defer wg.Done()
 			// crc32(data)+"~"+crc32(md5(data))
-			out <- DataSignerCrc32(strconv.Itoa(data)) + "~" + DataSignerCrc32(DataSignerMd5(strconv.Itoa(data)))
+			quotaCh <- struct{}{}
+			md5 := DataSignerMd5(strconv.Itoa(data))
+			<- quotaCh
+			out <- DataSignerCrc32(strconv.Itoa(data)) + "~" + DataSignerCrc32(md5)
 		}(out)
 	}
 	wg.Wait()
