@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,16 +20,31 @@ type TestCase struct {
 
 func TestFindUsers(t *testing.T) {
 	cases := []TestCase{
+		// находит 2 юзера по подстроке Culpa
 		{
 			Request: SearchRequest{
 				Query: "Culpa", // case sensitive
 			},
 			Response: SearchResponse{
-				Users:    []User{
+				Users: []User{
 					{Id: 24},
 					{Id: 32},
 				},
 				NextPage: false,
+			},
+			Error: nil,
+		},
+		// limit 1, должен выдать постраничную навигацию
+		{
+			Request: SearchRequest{
+				Query: "",
+				Limit: 1,
+			},
+			Response: SearchResponse{
+				Users: []User{
+					{Id: 24},
+				},
+				NextPage: true,
 			},
 			Error: nil,
 		},
@@ -41,19 +57,22 @@ func TestFindUsers(t *testing.T) {
 
 	for caseNum, item := range cases {
 
+		fmt.Printf("--------------\nTest case %d\n--------------\n", caseNum)
+
 		result, err := client.FindUsers(item.Request)
 		if err != nil {
-			t.Errorf("[%d] unexpected FindUsers error: %s", caseNum, err.Error())
+			t.Errorf("[case %d] unexpected FindUsers error: %s", caseNum, err.Error())
 			return
 		}
 
+		// fmt.Printf("%#v\n", result)
+
 		if len(result.Users) != len(item.Response.Users) {
-			t.Errorf("[%d] expected equal amount of the users, got %d : %d (result : test case))", caseNum, len(result.Users), len(item.Response.Users))
+			t.Errorf("[case %d] amount of the users: expected %d, got %d", caseNum, len(item.Response.Users), len(result.Users))
 		}
 
 		// for _, v := range result.Users {
-		// 	t.Errorf("%#v\n\n", v)
-		// 	return
+		// 	fmt.Printf("User Id %d, Name %s\n", v.Id, v.Name)
 		// }
 
 		// if err != nil {

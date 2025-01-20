@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -16,8 +16,8 @@ type Data struct {
 }
 
 type Row struct {
-	Id        int `xml:"id"`
-	Age       int `xml:"age"`
+	Id        int    `xml:"id"`
+	Age       int    `xml:"age"`
 	Gender    string `xml:"gender"`
 	FirstName string `xml:"first_name"`
 	LastName  string `xml:"last_name"`
@@ -26,11 +26,20 @@ type Row struct {
 
 func SearchServer(w http.ResponseWriter, r *http.Request) {
 	// параметры из url query string
-	query := r.URL.Query().Get("query")
-	orderField := r.URL.Query().Get("order_field")
+	queryParams := r.URL.Query()
+	query := queryParams.Get("query")
+	orderField := queryParams.Get("order_field")
+	limit, err := strconv.Atoi(queryParams.Get("limit"))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, "unable to get limit from request: "+err.Error())
+		return
+	}
+	// в параметрах передается limit + 1, для того чтобы определять следующую страницу
+	realLimit := limit-1
 
 	// валидация orderField
-	orderField, err := OrderFieldValidate(orderField)
+	orderField, err = OrderFieldValidate(orderField)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, err.Error())
@@ -41,14 +50,14 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	file, err := os.Open("dataset.xml")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, "unable to open data file: " + err.Error())
+		io.WriteString(w, "unable to open data file: "+err.Error())
 		return
 	}
 	defer file.Close()
 
 	dataRaw, err := io.ReadAll(file)
 	if err != nil {
-		io.WriteString(w, "unable to read data file: " + err.Error())
+		io.WriteString(w, "unable to read data file: "+err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -56,31 +65,28 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	data := new(Data)
 	err = xml.Unmarshal(dataRaw, data)
 	if err != nil {
-		io.WriteString(w, "unable to decode xml data: " + err.Error())
+		io.WriteString(w, "unable to decode xml data: "+err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	if query == "" {
-		// todo в объектах нет Name
-		fmt.Fprintf(w, "%#v", data.Rows)
-		return
-	}
-
-	// поиск подстроки query в name или about
 	result := make([]User, 0, len(data.Rows))
 	for _, row := range data.Rows {
-		name := row.FirstName + " " + row.LastName
-		if strings.Contains(name+" "+row.About, query) {
-			result = append(result, User{
-				Id:     row.Id,
-				Name:   name,
-				Age:    row.Age,
-				About:  row.About,
-				Gender: row.Gender,
-			})
+		// ограничиваем записи по значению realLimit + 1
+		// это нужно для логики клиента, где выбираются записи limit + 1
+		if realLimit > 0 && realLimit < len(result) {
+			break
 		}
+
+		// поиск подстроки query в name или about
+		whereSearch := row.FirstName + " " + row.LastName + " " + row.About
+		if query != "" && !strings.Contains(whereSearch, query) {
+			continue
+		}
+		// если query пустой - возвращаем все результаты
+		result = append(result, *RowToUser(&row))
 	}
+
 	jsonData, err := json.Marshal(result)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -88,6 +94,16 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(jsonData)
+}
+
+func RowToUser(row *Row) *User {
+	return &User{
+		Id:     row.Id,
+		Name:   row.FirstName + " " + row.LastName,
+		Age:    row.Age,
+		About:  row.About,
+		Gender: row.Gender,
+	}
 }
 
 func OrderFieldValidate(order string) (string, error) {
@@ -98,15 +114,4 @@ func OrderFieldValidate(order string) (string, error) {
 		return order, nil
 	}
 	return "", errors.New(ErrorBadOrderField)
-}
-
-func main() {
-	// result, err := SearchServer("Culpa", "")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// for _, v := range result {
-	// 	fmt.Printf("%#v\n\n", v)
-	// }
-
 }
