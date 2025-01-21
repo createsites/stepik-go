@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -160,13 +161,28 @@ func TestFindUsers(t *testing.T) {
 			},
 			Error: errors.New("offset must be > 0"),
 		},
+		// len(data) == req.Limit
+		// здесь с учетом фильтра выдается 2 юзера
+		// кол-во элементов должно совпадать с лимитом для этого кейса
+		{
+			Request: SearchRequest{
+				Query: "Culpa",
+				Limit: 1,
+			},
+			Response: SearchResponse{
+				Users: []User{
+					{Id: 24},
+				},
+				NextPage: true,
+			},
+		},
 		// invalid order by
-		// {
-		// 	Request: SearchRequest{
-		// 		OrderBy: -100,
-		// 	},
-		// 	Error: errors.New(ErrorBadOrderField),
-		// },
+		{
+			Request: SearchRequest{
+				OrderBy: -100,
+			},
+			Error: errors.New("SearchServer fatal error"),
+		},
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
@@ -248,5 +264,18 @@ func TestFindUsers(t *testing.T) {
 		t.Errorf("[case bad request] expected 'unknown bad request error' error, got %s", err.Error())
 	}
 
+	// не удается распарсить json корректного ответа
+	// т.к. ожидается корректный, а приходит некорректный ответ
+	tsBadJson := httptest.NewServer(http.HandlerFunc(InvalidJsonServer))
+	client.URL = tsBadJson.URL
+	_, err = client.FindUsers(SearchRequest{})
+	if err == nil {
+		t.Errorf("[case invalid json] expected 'cant unpack error json' error, got nil")
+	}
+	if !strings.Contains(err.Error(), "cant unpack result json") {
+		t.Errorf("[case invalid json] expected 'cant unpack error json' error, got '%s'", err.Error())
+	}
+
 	ts.Close()
+	tsBadJson.Close()
 }

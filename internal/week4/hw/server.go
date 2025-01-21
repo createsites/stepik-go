@@ -176,7 +176,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	// ограничиваем записи по значению realLimit + 1
 	// это нужно для логики клиента, где выбираются записи limit + 1
 	if realLimit > 0 && realLimit < len(result) {
-		result = result[offset : realLimit+offset]
+		result = result[offset : limit+offset]
 	}
 
 	jsonData, err := json.Marshal(result)
@@ -217,4 +217,8 @@ func OrderByValidate(orderByRaw string) (int, error) {
 		return 0, errors.New("bad order by")
 	}
 	return orderBy, nil
+}
+
+func InvalidJsonServer(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "{not_a_json")
 }

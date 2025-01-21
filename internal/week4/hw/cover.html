@@ -55,9 +55,9 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">hw4/client.go (78.6%)</option>
+				<option value="file0">hw4/client.go (88.1%)</option>
 				
-				<option value="file1">hw4/server.go (72.0%)</option>
+				<option value="file1">hw4/server.go (75.9%)</option>
 				
 				</select>
 			</div>
@@ -170,7 +170,7 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) <
         switch resp.StatusCode </span>{
         case http.StatusUnauthorized:<span class="cov8" title="1">
                 return nil, fmt.Errorf("Bad AccessToken")</span>
-        case http.StatusInternalServerError:<span class="cov0" title="0">
+        case http.StatusInternalServerError:<span class="cov8" title="1">
                 return nil, fmt.Errorf("SearchServer fatal error")</span>
         case http.StatusBadRequest:<span class="cov8" title="1">
                 errResp := SearchErrorResponse{}
@@ -186,12 +186,12 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) <
 
         <span class="cov8" title="1">data := []User{}
         err = json.Unmarshal(body, &amp;data)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 return nil, fmt.Errorf("cant unpack result json: %s", err)
         }</span>
 
         <span class="cov8" title="1">result := SearchResponse{}
-        if len(data) == req.Limit </span><span class="cov0" title="0">{
+        if len(data) == req.Limit </span><span class="cov8" title="1">{
                 result.NextPage = true
                 result.Users = data[0 : len(data)-1]
         }</span> else<span class="cov8" title="1"> {
@@ -298,7 +298,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) <span class="cov8" tit
 
         // валидация orderBy
         <span class="cov8" title="1">orderBy, err := OrderByValidate(queryParams.Get("order_by"))
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 w.WriteHeader(http.StatusInternalServerError)
                 io.WriteString(w, err.Error())
                 return
@@ -380,7 +380,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) <span class="cov8" tit
         // ограничиваем записи по значению realLimit + 1
         // это нужно для логики клиента, где выбираются записи limit + 1
         <span class="cov8" title="1">if realLimit &gt; 0 &amp;&amp; realLimit &lt; len(result) </span><span class="cov8" title="1">{
-                result = result[offset : realLimit+offset]
+                result = result[offset : limit+offset]
         }</span>
 
         <span class="cov8" title="1">jsonData, err := json.Marshal(result)
@@ -417,11 +417,15 @@ func OrderByValidate(orderByRaw string) (int, error) <span class="cov8" title="1
         if err != nil </span><span class="cov0" title="0">{
                 return 0, errors.New("can not convert the order by to int")
         }</span>
-        <span class="cov8" title="1">if orderBy != OrderByAsIs &amp;&amp; orderBy != OrderByAsc &amp;&amp; orderBy != OrderByDesc </span><span class="cov0" title="0">{
+        <span class="cov8" title="1">if orderBy != OrderByAsIs &amp;&amp; orderBy != OrderByAsc &amp;&amp; orderBy != OrderByDesc </span><span class="cov8" title="1">{
                 return 0, errors.New("bad order by")
         }</span>
         <span class="cov8" title="1">return orderBy, nil</span>
 }
+
+func InvalidJsonServer(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        io.WriteString(w, "{not_a_json")
+}</span>
 </pre>
 		
 		</div>
