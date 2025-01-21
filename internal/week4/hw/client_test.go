@@ -90,6 +90,22 @@ func TestFindUsers(t *testing.T) {
 			},
 			Error: nil,
 		},
+		// offset
+		{
+			Request: SearchRequest{
+				OrderField: "Name",
+				OrderBy:    OrderByAsc,
+				Limit:      1,
+				Offset:     2,
+			},
+			Response: SearchResponse{
+				Users: []User{
+					{Id: 19},
+				},
+				NextPage: true,
+			},
+			Error: nil,
+		},
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))

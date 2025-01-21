@@ -51,6 +51,12 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	query := queryParams.Get("query")
 	orderField := queryParams.Get("order_field")
+	offset, err := strconv.Atoi(queryParams.Get("offset"))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, "unable to convert offset from string to int: "+err.Error())
+		return
+	}
 	limit, err := strconv.Atoi(queryParams.Get("limit"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -152,7 +158,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	// ограничиваем записи по значению realLimit + 1
 	// это нужно для логики клиента, где выбираются записи limit + 1
 	if realLimit > 0 && realLimit < len(result) {
-		result = result[:realLimit]
+		result = result[offset : realLimit+offset]
 	}
 
 	jsonData, err := json.Marshal(result)
