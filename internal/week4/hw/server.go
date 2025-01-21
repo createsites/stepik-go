@@ -66,6 +66,13 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	// в параметрах передается limit + 1, для того чтобы определять следующую страницу
 	realLimit := limit - 1
 
+	// проверка токена авторизации
+	if r.Header.Get("AccessToken") != "secret" {
+		w.WriteHeader(http.StatusUnauthorized)
+		io.WriteString(w, "client is not authorized")
+		return
+	}
+
 	// валидация orderField
 	orderField, err = OrderFieldValidate(orderField)
 	if err != nil {

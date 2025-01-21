@@ -106,12 +106,66 @@ func TestFindUsers(t *testing.T) {
 			},
 			Error: nil,
 		},
+		// error: limit must be > 0
+		{
+			Request: SearchRequest{
+				Limit: -1,
+			},
+			Error: errors.New("limit must be > 0"),
+		},
+		// if Limit > 25 then Limit = 25
+		{
+			Request: SearchRequest{
+				Limit: 30,
+			},
+			Response: SearchResponse{
+				// Id == -1 это значит подходит любой юзер
+				// если нужно проверить только кол-во, а порядок Id не важен
+				Users: []User{
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+					{Id: -1},
+				},
+				NextPage: true,
+			},
+			Error: nil,
+		},
+		// error: Offset < 0
+		{
+			Request: SearchRequest{
+				Offset: -1,
+			},
+			Error: errors.New("offset must be > 0"),
+		},
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
 
 	client := &SearchClient{}
 	client.URL = ts.URL
+	client.AccessToken = "secret"
 
 	for caseNum, item := range cases {
 		if testing.Verbose() {
@@ -126,18 +180,20 @@ func TestFindUsers(t *testing.T) {
 		}
 
 		if item.Error == nil {
-
-			for _, v := range result.Users {
-				fmt.Printf("User Id %d, Name %s\n", v.Id, v.Name)
+			if testing.Verbose() {
+				for _, v := range result.Users {
+					fmt.Printf("User Id %d, Name %s\n", v.Id, v.Name)
+				}
 			}
-
 			// проверка кол-ва элементов
 			if len(result.Users) != len(item.Response.Users) {
-
 				t.Errorf("[case %d] amount of the users: expected %d, got %d", caseNum, len(item.Response.Users), len(result.Users))
 			}
 			// проверка совпадения записей
 			for i, user := range result.Users {
+				if item.Response.Users[i].Id < 0 {
+					continue
+				}
 				if user.Id != 0 && user.Id != item.Response.Users[i].Id {
 					t.Errorf("[case %d] mismatched user ids: expected %d, got %d", caseNum, item.Response.Users[i].Id, user.Id)
 				}
@@ -157,5 +213,15 @@ func TestFindUsers(t *testing.T) {
 		// 	t.Errorf("[%d] wrong result, expected %#v, got %#v", caseNum, item.Result, result)
 		// }
 	}
+	// проверка ответа http 400 при неверном токене
+	client.AccessToken = "wrong"
+	_, err := client.FindUsers(cases[0].Request)
+	if err == nil {
+		t.Errorf("[case unauthorized] expected an unauthorized error, got nil")
+		if err.Error() != "Bad AccessToken" {
+			t.Errorf("[case unauthorized] expected Bad AccessToken error, got %s", err.Error())
+		}
+	}
+
 	ts.Close()
 }
