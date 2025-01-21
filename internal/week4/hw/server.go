@@ -29,8 +29,22 @@ type Row struct {
 type ByName []User
 
 func (u ByName) Len() int           { return len(u) }
-func (u ByName) Less(i, j int) bool { return u[i].Name > u[j].Name }
+func (u ByName) Less(i, j int) bool { return u[i].Name < u[j].Name }
 func (u ByName) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
+
+// для сортировки по Id
+type ById []User
+
+func (u ById) Len() int           { return len(u) }
+func (u ById) Less(i, j int) bool { return u[i].Id < u[j].Id }
+func (u ById) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
+
+// для сортировки по возрасту
+type ByAge []User
+
+func (u ByAge) Len() int           { return len(u) }
+func (u ByAge) Less(i, j int) bool { return u[i].Age < u[j].Age }
+func (u ByAge) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
 
 func SearchServer(w http.ResponseWriter, r *http.Request) {
 	// параметры из url query string
@@ -88,27 +102,57 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 
 	result := make([]User, 0, len(data.Rows))
 	for _, row := range data.Rows {
-		// ограничиваем записи по значению realLimit + 1
-		// это нужно для логики клиента, где выбираются записи limit + 1
-		if realLimit > 0 && realLimit < len(result) {
-			break
-		}
-
-		// поиск подстроки query в name или about
-		whereSearch := row.FirstName + " " + row.LastName + " " + row.About
-		if query != "" && !strings.Contains(whereSearch, query) {
-			continue
-		}
-		// если query пустой - возвращаем все результаты
 		result = append(result, *RowToUser(&row))
 	}
 
 	// сортировка
 	if orderBy == OrderByAsc {
-		sort.Sort(ByName(result))
+		if orderField == "Id" {
+			sort.Sort(ById(result))
+		} else if orderField == "Age" {
+			sort.Sort(ByAge(result))
+		} else {
+			sort.Sort(ByName(result))
+		}
 	}
 	if orderBy == OrderByDesc {
-		sort.Sort(sort.Reverse(ByName(result)))
+		if orderField == "Id" {
+			sort.Sort(sort.Reverse(ById(result)))
+		} else if orderField == "Age" {
+			sort.Sort(sort.Reverse(ByAge(result)))
+		} else {
+			sort.Sort(sort.Reverse(ByName(result)))
+		}
+	}
+
+	// фильтрация
+	if query != "" {
+		// убираем из слайса элементы, сдвигая справа на место не нужных
+		// счетчик удаленных эл-ов
+		var deleted int
+		// указатель на текущий элемент после фильтрации
+		// с каждым отфильтрованным элементом он будет отставать на 1 от i
+		var posAfterFilter int
+		for i := 0; i < len(result); i++ {
+			// поиск подстроки query в name или about
+			whereSearch := result[i].Name + " " + result[i].About
+			// не нашлось
+			if query != "" && !strings.Contains(whereSearch, query) {
+				deleted++
+				continue
+			}
+			result[posAfterFilter] = result[i]
+			posAfterFilter++
+		}
+		// и потом урезаем слайс справа на кол-во удаленных эл-в
+		result = result[:(len(result) - deleted)]
+	}
+
+	// лимит и оффсет
+	// ограничиваем записи по значению realLimit + 1
+	// это нужно для логики клиента, где выбираются записи limit + 1
+	if realLimit > 0 && realLimit < len(result) {
+		result = result[:realLimit]
 	}
 
 	jsonData, err := json.Marshal(result)

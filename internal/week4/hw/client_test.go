@@ -72,6 +72,24 @@ func TestFindUsers(t *testing.T) {
 			},
 			Error: nil,
 		},
+		// сортировка по name по возрастанию
+		{
+			Request: SearchRequest{
+				OrderField: "Name",
+				OrderBy:    OrderByAsc,
+				Limit:      4,
+			},
+			Response: SearchResponse{
+				Users: []User{
+					{Id: 15},
+					{Id: 16},
+					{Id: 19},
+					{Id: 22},
+				},
+				NextPage: true,
+			},
+			Error: nil,
+		},
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
@@ -92,8 +110,14 @@ func TestFindUsers(t *testing.T) {
 		}
 
 		if item.Error == nil {
+
+			for _, v := range result.Users {
+				fmt.Printf("User Id %d, Name %s\n", v.Id, v.Name)
+			}
+
 			// проверка кол-ва элементов
 			if len(result.Users) != len(item.Response.Users) {
+
 				t.Errorf("[case %d] amount of the users: expected %d, got %d", caseNum, len(item.Response.Users), len(result.Users))
 			}
 			// проверка совпадения записей
@@ -109,10 +133,6 @@ func TestFindUsers(t *testing.T) {
 				t.Errorf("[case %d] unexpected error: expected %s, got %s", caseNum, item.Error.Error(), err.Error())
 			}
 		}
-
-		// for _, v := range result.Users {
-		// 	fmt.Printf("User Id %d, Name %s\n", v.Id, v.Name)
-		// }
 
 		// if !result.NextPage {
 		// 	t.Errorf("[%d] expected next page, got false", caseNum)
