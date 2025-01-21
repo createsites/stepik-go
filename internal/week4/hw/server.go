@@ -86,7 +86,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	orderField, err = OrderFieldValidate(orderField)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		errStr := SearchErrorResponse{ErrorBadOrderField}
+		errStr := SearchErrorResponse{"ErrorBadOrderField"}
 		jsonErr, _ := json.Marshal(errStr)
 		w.Write(jsonErr)
 		return
@@ -221,4 +221,9 @@ func OrderByValidate(orderByRaw string) (int, error) {
 
 func InvalidJsonServer(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "{not_a_json")
+}
+
+func InvalidErrorFormatServer(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusBadRequest)
+	io.WriteString(w, "{invalid_error_json")
 }

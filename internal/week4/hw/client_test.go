@@ -56,7 +56,7 @@ func TestFindUsers(t *testing.T) {
 			Request: SearchRequest{
 				OrderField: "Undefined",
 			},
-			Error: errors.New("unknown bad request error: OrderField invalid"),
+			Error: errors.New("OrderFeld Undefined invalid"),
 		},
 		// сортировка по id по убыванию
 		{
@@ -186,6 +186,7 @@ func TestFindUsers(t *testing.T) {
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
+	defer ts.Close()
 
 	client := &SearchClient{}
 	client.URL = ts.URL
@@ -234,7 +235,7 @@ func TestFindUsers(t *testing.T) {
 		} else {
 			// проверка ожидаемых ошибок
 			if item.Error.Error() != err.Error() {
-				t.Errorf("[case %d] unexpected error: expected %s, got %s", caseNum, item.Error.Error(), err.Error())
+				t.Errorf("[case %d] unexpected error: expected '%s', got '%s'", caseNum, item.Error.Error(), err.Error())
 			}
 		}
 
@@ -251,7 +252,7 @@ func TestFindUsers(t *testing.T) {
 	if err == nil {
 		t.Errorf("[case unauthorized] expected an unauthorized error, got nil")
 		if err.Error() != "Bad AccessToken" {
-			t.Errorf("[case unauthorized] expected Bad AccessToken error, got %s", err.Error())
+			t.Errorf("[case unauthorized] expected 'Bad AccessToken error', got '%s'", err.Error())
 		}
 	}
 
@@ -261,21 +262,31 @@ func TestFindUsers(t *testing.T) {
 	if err == nil {
 		t.Errorf("[case bad request] expected 'token should be passed' error, got nil")
 	} else if err.Error() != "unknown bad request error: token should be passed" {
-		t.Errorf("[case bad request] expected 'unknown bad request error' error, got %s", err.Error())
+		t.Errorf("[case bad request] expected 'unknown bad request error', got '%s'", err.Error())
 	}
 
 	// не удается распарсить json корректного ответа
 	// т.к. ожидается корректный, а приходит некорректный ответ
 	tsBadJson := httptest.NewServer(http.HandlerFunc(InvalidJsonServer))
+	defer tsBadJson.Close()
 	client.URL = tsBadJson.URL
 	_, err = client.FindUsers(SearchRequest{})
 	if err == nil {
-		t.Errorf("[case invalid json] expected 'cant unpack error json' error, got nil")
+		t.Errorf("[case invalid json] expected 'cant unpack result json' error, got nil")
 	}
 	if !strings.Contains(err.Error(), "cant unpack result json") {
 		t.Errorf("[case invalid json] expected 'cant unpack error json' error, got '%s'", err.Error())
 	}
 
-	ts.Close()
-	tsBadJson.Close()
+	// неправильный формат ошибки при http 400
+	tsInvalidError := httptest.NewServer(http.HandlerFunc(InvalidErrorFormatServer))
+	defer tsInvalidError.Close()
+	client.URL = tsInvalidError.URL
+	_, err = client.FindUsers(SearchRequest{})
+	if err == nil {
+		t.Errorf("[case invalid json] expected 'cant unpack error json' error, got nil")
+	}
+	if !strings.Contains(err.Error(), "cant unpack error json") {
+		t.Errorf("[case invalid json] expected 'cant unpack error json' error, got '%s'", err.Error())
+	}
 }
