@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -24,6 +25,13 @@ type Row struct {
 	About     string `xml:"about"`
 }
 
+// для сортировки по имени
+type ByName []User
+
+func (u ByName) Len() int           { return len(u) }
+func (u ByName) Less(i, j int) bool { return u[i].Name > u[j].Name }
+func (u ByName) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
+
 func SearchServer(w http.ResponseWriter, r *http.Request) {
 	// параметры из url query string
 	queryParams := r.URL.Query()
@@ -36,10 +44,18 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// в параметрах передается limit + 1, для того чтобы определять следующую страницу
-	realLimit := limit-1
+	realLimit := limit - 1
 
 	// валидация orderField
 	orderField, err = OrderFieldValidate(orderField)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, err.Error())
+		return
+	}
+
+	// валидация orderBy
+	orderBy, err := OrderByValidate(queryParams.Get("order_by"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, err.Error())
@@ -87,6 +103,14 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 		result = append(result, *RowToUser(&row))
 	}
 
+	// сортировка
+	if orderBy == OrderByAsc {
+		sort.Sort(ByName(result))
+	}
+	if orderBy == OrderByDesc {
+		sort.Sort(sort.Reverse(ByName(result)))
+	}
+
 	jsonData, err := json.Marshal(result)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -114,4 +138,15 @@ func OrderFieldValidate(order string) (string, error) {
 		return order, nil
 	}
 	return "", errors.New(ErrorBadOrderField)
+}
+
+func OrderByValidate(orderByRaw string) (int, error) {
+	orderBy, err := strconv.Atoi(orderByRaw)
+	if err != nil {
+		return 0, errors.New("can not convert the order by to int")
+	}
+	if orderBy != OrderByAsIs && orderBy != OrderByAsc && orderBy != OrderByDesc {
+		return 0, errors.New("bad order by")
+	}
+	return orderBy, nil
 }
