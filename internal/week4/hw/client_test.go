@@ -50,11 +50,12 @@ func TestFindUsers(t *testing.T) {
 			Error: nil,
 		},
 		// не корректный order_field
+		// это ошибка 400, а не 500
 		{
 			Request: SearchRequest{
 				OrderField: "Undefined",
 			},
-			Error: errors.New("SearchServer fatal error"),
+			Error: errors.New("unknown bad request error: OrderField invalid"),
 		},
 		// сортировка по id по убыванию
 		{
@@ -159,6 +160,13 @@ func TestFindUsers(t *testing.T) {
 			},
 			Error: errors.New("offset must be > 0"),
 		},
+		// invalid order by
+		// {
+		// 	Request: SearchRequest{
+		// 		OrderBy: -100,
+		// 	},
+		// 	Error: errors.New(ErrorBadOrderField),
+		// },
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(SearchServer))
@@ -178,6 +186,14 @@ func TestFindUsers(t *testing.T) {
 			t.Errorf("[case %d] unexpected FindUsers error: %s", caseNum, err.Error())
 			return
 		}
+
+		// // проверка http статуса
+		// if item.HttpStatus != 0 {
+		// 	if item.HttpStatus == http.StatusBadRequest {
+		// 		if result.
+		// 	}
+		// 	t.Errorf("[case %d] amount of the users: expected %d, got %d", caseNum, len(item.Response.Users), len(result.Users))
+		// }
 
 		if item.Error == nil {
 			if testing.Verbose() {
@@ -213,7 +229,7 @@ func TestFindUsers(t *testing.T) {
 		// 	t.Errorf("[%d] wrong result, expected %#v, got %#v", caseNum, item.Result, result)
 		// }
 	}
-	// проверка ответа http 400 при неверном токене
+	// проверка авторизации
 	client.AccessToken = "wrong"
 	_, err := client.FindUsers(cases[0].Request)
 	if err == nil {
@@ -221,6 +237,15 @@ func TestFindUsers(t *testing.T) {
 		if err.Error() != "Bad AccessToken" {
 			t.Errorf("[case unauthorized] expected Bad AccessToken error, got %s", err.Error())
 		}
+	}
+
+	// проверка ответа bad request, если не передать токен
+	client.AccessToken = ""
+	_, err = client.FindUsers(cases[0].Request)
+	if err == nil {
+		t.Errorf("[case bad request] expected 'token should be passed' error, got nil")
+	} else if err.Error() != "unknown bad request error: token should be passed" {
+		t.Errorf("[case bad request] expected 'unknown bad request error' error, got %s", err.Error())
 	}
 
 	ts.Close()

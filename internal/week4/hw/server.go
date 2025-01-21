@@ -66,6 +66,15 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	// в параметрах передается limit + 1, для того чтобы определять следующую страницу
 	realLimit := limit - 1
 
+	// для проверки http 400
+	if r.Header.Get("AccessToken") == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		errStr := SearchErrorResponse{"token should be passed"}
+		jsonErr, _ := json.Marshal(errStr)
+		w.Write(jsonErr)
+		return
+	}
+
 	// проверка токена авторизации
 	if r.Header.Get("AccessToken") != "secret" {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -76,8 +85,10 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	// валидация orderField
 	orderField, err = OrderFieldValidate(orderField)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, err.Error())
+		w.WriteHeader(http.StatusBadRequest)
+		errStr := SearchErrorResponse{ErrorBadOrderField}
+		jsonErr, _ := json.Marshal(errStr)
+		w.Write(jsonErr)
 		return
 	}
 
