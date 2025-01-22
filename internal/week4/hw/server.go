@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Data struct {
@@ -226,4 +227,8 @@ func InvalidJsonServer(w http.ResponseWriter, r *http.Request) {
 func InvalidErrorFormatServer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusBadRequest)
 	io.WriteString(w, "{invalid_error_json")
+}
+
+func TimeoutServer(w http.ResponseWriter, r *http.Request) {
+	time.Sleep(time.Second)
 }

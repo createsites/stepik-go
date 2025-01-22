@@ -204,14 +204,6 @@ func TestFindUsers(t *testing.T) {
 			return
 		}
 
-		// // проверка http статуса
-		// if item.HttpStatus != 0 {
-		// 	if item.HttpStatus == http.StatusBadRequest {
-		// 		if result.
-		// 	}
-		// 	t.Errorf("[case %d] amount of the users: expected %d, got %d", caseNum, len(item.Response.Users), len(result.Users))
-		// }
-
 		if item.Error == nil {
 			if testing.Verbose() {
 				for _, v := range result.Users {
@@ -238,14 +230,8 @@ func TestFindUsers(t *testing.T) {
 				t.Errorf("[case %d] unexpected error: expected '%s', got '%s'", caseNum, item.Error.Error(), err.Error())
 			}
 		}
-
-		// if !result.NextPage {
-		// 	t.Errorf("[%d] expected next page, got false", caseNum)
-		// }
-		// if !reflect.DeepEqual(item.Result, result) {
-		// 	t.Errorf("[%d] wrong result, expected %#v, got %#v", caseNum, item.Result, result)
-		// }
 	}
+
 	// проверка авторизации
 	client.AccessToken = "wrong"
 	_, err := client.FindUsers(cases[0].Request)
@@ -288,5 +274,27 @@ func TestFindUsers(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cant unpack error json") {
 		t.Errorf("[case invalid json] expected 'cant unpack error json' error, got '%s'", err.Error())
+	}
+
+	// тест запроса client.Do с возвратом неизвестной ошибки
+	client.URL = "invalid_url"
+	_, err = client.FindUsers(SearchRequest{})
+	if err == nil {
+		t.Errorf("[case invalid url] expected 'unknown error' error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown error") {
+		t.Errorf("[case invalid url] expected 'unknown error' error, got '%s'", err.Error())
+	}
+
+	// server timeout
+	tsTimeout := httptest.NewServer(http.HandlerFunc(TimeoutServer))
+	defer tsTimeout.Close()
+	client.URL = tsTimeout.URL
+	_, err = client.FindUsers(SearchRequest{})
+	if err == nil {
+		t.Errorf("[case tieout] expected 'timeout' error, got nil")
+	}
+	if !strings.Contains(err.Error(), "timeout") {
+		t.Errorf("[case invalid url] expected 'timeout' error, got '%s'", err.Error())
 	}
 }
